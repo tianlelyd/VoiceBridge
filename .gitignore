@@ -21,6 +21,8 @@ Package.resolved
 .env
 .env.*
 
+docs/
+
 # Superpowers
 .superpowers/
 docs/superpowers/
