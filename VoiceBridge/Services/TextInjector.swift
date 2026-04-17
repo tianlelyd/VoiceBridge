@@ -4,6 +4,10 @@ import os
 final class TextInjector {
 
     static let shared = TextInjector()
+    private static let intentFallbackBundleIdentifiers: Set<String> = [
+        "com.tencent.xinWeChat",
+        "com.electron.lark",
+    ]
 
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "VoiceBridge",
                                 category: "TextInjector")
@@ -19,14 +23,30 @@ final class TextInjector {
 
     func inject(_ text: String) {
         logger.info("开始注入文本，长度: \(text.count)")
+        let frontmostApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?"
+        let shouldUseIntentFallback = Self.intentFallbackBundleIdentifiers.contains(frontmostApp)
 
         guard let element = focusedTextElement() else {
+            if shouldUseIntentFallback {
+                logger.warning("前台应用 \(frontmostApp, privacy: .public) 无法确认输入框焦点，按用户意图走剪贴板兜底")
+                injectViaClipboard(text)
+                logger.info("意图兜底剪贴板注入完成")
+                return
+            }
+
             logger.warning("当前无活跃输入框，丢弃文本")
             return
         }
 
         if injectViaAccessibility(text, element: element) {
             logger.info("Accessibility API 注入成功")
+            return
+        }
+
+        if shouldUseIntentFallback {
+            logger.warning("前台应用 \(frontmostApp, privacy: .public) 下 Accessibility API 不可用，直接降级到剪贴板")
+            injectViaClipboard(text)
+            logger.info("意图兜底剪贴板注入完成")
             return
         }
 
@@ -45,11 +65,14 @@ final class TextInjector {
 
     private func focusedTextElement() -> AXUIElement? {
         let systemWide = AXUIElementCreateSystemWide()
-        var focusedRef: AnyObject?
+        let appBundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?"
 
-        guard AXUIElementCopyAttributeValue(systemWide,
-                                            kAXFocusedUIElementAttribute as CFString,
-                                            &focusedRef) == .success else {
+        var focusedRef: AnyObject?
+        let copyResult = AXUIElementCopyAttributeValue(systemWide,
+                                                        kAXFocusedUIElementAttribute as CFString,
+                                                        &focusedRef)
+        guard copyResult == .success else {
+            logger.warning("焦点诊断 app=\(appBundle, privacy: .public) 获取焦点元素失败 AXError=\(copyResult.rawValue)")
             return nil
         }
 
@@ -58,12 +81,21 @@ final class TextInjector {
 
         var role: AnyObject?
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
+        var subrole: AnyObject?
+        AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole)
+        var identifier: AnyObject?
+        AXUIElementCopyAttributeValue(element, kAXIdentifierAttribute as CFString, &identifier)
 
-        guard let roleStr = role as? String,
-              Self.textInputRoles.contains(roleStr) else {
+        let roleStr = (role as? String) ?? "nil"
+        let subroleStr = (subrole as? String) ?? "nil"
+        let idStr = (identifier as? String) ?? "nil"
+
+        guard let r = role as? String, Self.textInputRoles.contains(r) else {
+            logger.warning("焦点诊断 app=\(appBundle, privacy: .public) role=\(roleStr, privacy: .public) subrole=\(subroleStr, privacy: .public) id=\(idStr, privacy: .public) 不在白名单")
             return nil
         }
 
+        logger.warning("焦点诊断 app=\(appBundle, privacy: .public) role=\(roleStr, privacy: .public) subrole=\(subroleStr, privacy: .public) 命中白名单")
         return element
     }
 

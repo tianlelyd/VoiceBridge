@@ -8,7 +8,9 @@ struct VoiceBridgeApp: App {
 
     init() {
         FeishuClient.shared.onTextReceived = { text in
-            TextInjector.shared.inject(text)
+            DispatchQueue.main.async {
+                TextInjector.shared.inject(text)
+            }
         }
     }
 
