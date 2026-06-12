@@ -27,6 +27,13 @@ struct FeishuEventHeader: Codable {
 struct FeishuEvent: Codable {
     let sender: FeishuSender?
     let message: FeishuMessage?
+    let eventKey: String?
+
+    enum CodingKeys: String, CodingKey {
+        case sender
+        case message
+        case eventKey = "event_key"
+    }
 }
 
 struct FeishuSender: Codable {

@@ -23,6 +23,7 @@ final class FeishuClient {
     private(set) var state: FeishuConnectionState = .disconnected
 
     var onTextReceived: ((String) -> Void)?
+    var onEnterReceived: (() -> Void)?
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var pingTimer: Timer?
@@ -236,27 +237,44 @@ final class FeishuClient {
         do {
             let event = try jsonDecoder.decode(FeishuEventWrapper.self, from: frame.payload)
 
+            let eventId = event.event?.message?.messageId ?? event.header?.eventId
+            if let eventId, !eventId.isEmpty {
+                if isDuplicate(eventId) {
+                    logger.info("跳过重复事件: \(eventId)")
+                    return
+                }
+                recordMessage(eventId)
+            }
+
+            let createTimeStr = event.event?.message?.createTime ?? event.header?.createTime
+            if let createTimeStr,
+               let createTimeMs = Double(createTimeStr) {
+                let eventAge = Date().timeIntervalSince1970 - (createTimeMs / 1000.0)
+                if eventAge > messageExpirySeconds {
+                    logger.info("丢弃过期事件 (age=\(Int(eventAge))s): \(event.header?.eventType ?? "unknown")")
+                    return
+                }
+            }
+
+            if event.header?.eventType == "application.bot.menu_v6" {
+                guard let eventKey = event.event?.eventKey, !eventKey.isEmpty else {
+                    logger.debug("忽略缺少 event_key 的机器人菜单事件")
+                    return
+                }
+
+                logger.info("收到机器人菜单事件: \(eventKey)")
+                if eventKey == "enter" {
+                    self.onEnterReceived?()
+                } else {
+                    logger.debug("忽略未处理的机器人菜单事件: \(eventKey)")
+                }
+                return
+            }
+
             guard let message = event.event?.message,
                   let text = message.plainText,
                   !text.isEmpty else {
                 return
-            }
-
-            if let msgId = message.messageId, !msgId.isEmpty {
-                if isDuplicate(msgId) {
-                    logger.info("跳过重复消息: \(msgId)")
-                    return
-                }
-                recordMessage(msgId)
-            }
-
-            if let createTimeStr = message.createTime,
-               let createTimeMs = Double(createTimeStr) {
-                let messageAge = Date().timeIntervalSince1970 - (createTimeMs / 1000.0)
-                if messageAge > messageExpirySeconds {
-                    logger.info("丢弃过期消息 (age=\(Int(messageAge))s): \(text.prefix(30))")
-                    return
-                }
             }
 
             logger.info("收到文本消息: \(text.prefix(50))")

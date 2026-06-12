@@ -25,6 +25,10 @@ final class TextInjector {
         engine.inject(text)
     }
 
+    func pressEnter() {
+        engine.pressEnter()
+    }
+
     // MARK: - 获取焦点文本元素（单次查询，避免重复 IPC）
 
     private func focusedTextSnapshot() -> FocusSnapshot {
@@ -175,6 +179,16 @@ extension TextInjector: TextInjectionPerforming {
 
         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
         keyUp?.flags = .maskCommand
+        keyUp?.post(tap: .cghidEventTap)
+    }
+
+    func pressReturnKey() {
+        let source = CGEventSource(stateID: .hidSystemState)
+
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x24, keyDown: true)
+        keyDown?.post(tap: .cghidEventTap)
+
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x24, keyDown: false)
         keyUp?.post(tap: .cghidEventTap)
     }
 }

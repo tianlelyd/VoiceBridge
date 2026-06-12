@@ -12,6 +12,11 @@ struct VoiceBridgeApp: App {
                 TextInjector.shared.inject(text)
             }
         }
+        FeishuClient.shared.onEnterReceived = {
+            DispatchQueue.main.async {
+                TextInjector.shared.pressEnter()
+            }
+        }
     }
 
     var body: some Scene {

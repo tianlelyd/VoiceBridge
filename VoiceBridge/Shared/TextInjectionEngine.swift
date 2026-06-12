@@ -38,6 +38,7 @@ protocol TextInjectionPerforming: AnyObject {
     func injectViaAccessibility(_ text: String, element: AXUIElement) -> Bool
     func injectViaAppleScript(_ text: String) -> Bool
     func injectViaClipboard(_ text: String)
+    func pressReturnKey()
 }
 
 final class TextInjectionEngine {
@@ -110,6 +111,42 @@ final class TextInjectionEngine {
             logger.warning("Apple Events 失败，降级到剪贴板")
             performer.injectViaClipboard(text)
             logger.info("剪贴板注入完成")
+        }
+    }
+
+    func pressEnter() {
+        logger.info("开始触发回车")
+
+        guard let focusProvider, let performer else {
+            logger.warning("依赖已释放，丢弃回车事件")
+            return
+        }
+
+        let snapshot = focusProvider.currentFocusSnapshot()
+        let frontmostApp = snapshot.frontmostBundleIdentifier ?? "?"
+        let shouldUseIntentFallback = Self.intentFallbackBundleIdentifiers.contains(frontmostApp)
+
+        switch snapshot.state {
+        case .unavailable(let axError):
+            logger.warning("回车焦点诊断 app=\(frontmostApp) 获取焦点元素失败 AXError=\(axError)")
+
+            if shouldUseIntentFallback {
+                logger.warning("前台应用 \(frontmostApp) 无法确认输入框焦点，按用户意图触发回车")
+                performer.pressReturnKey()
+                logger.info("回车触发完成")
+                return
+            }
+
+            logger.warning("当前无活跃输入框，丢弃回车事件")
+
+        case .nonInput(let role, let subrole, let identifier):
+            logger.warning("回车焦点诊断 app=\(frontmostApp) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
+            logger.warning("当前无活跃输入框，丢弃回车事件")
+
+        case .textInput(let role, let subrole, let identifier, _):
+            logger.warning("回车焦点诊断 app=\(frontmostApp) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
+            performer.pressReturnKey()
+            logger.info("回车触发完成")
         }
     }
 

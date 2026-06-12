@@ -112,6 +112,43 @@ final class TextInjectionEngineTests: XCTestCase {
         ])
     }
 
+    func testTextInputEnterPressesReturnKey() {
+        let recorder = RecordingPerformer()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.TextEdit",
+            state: .textInput(role: "AXTextArea", subrole: nil, identifier: "document",
+                              element: AXUIElementCreateSystemWide())
+        ), performer: recorder)
+
+        engine.pressEnter()
+
+        XCTAssertEqual(recorder.calls, [.returnKey])
+    }
+
+    func testIntentFallbackUnavailableEnterPressesReturnKey() {
+        let recorder = RecordingPerformer()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.electron.lark",
+            state: .unavailable(axError: -25212)
+        ), performer: recorder)
+
+        engine.pressEnter()
+
+        XCTAssertEqual(recorder.calls, [.returnKey])
+    }
+
+    func testNonInputEnterDropsEvent() {
+        let recorder = RecordingPerformer()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.dt.Xcode",
+            state: .nonInput(role: "AXButton", subrole: "AXSwitch", identifier: "foo")
+        ), performer: recorder)
+
+        engine.pressEnter()
+
+        XCTAssertTrue(recorder.calls.isEmpty)
+    }
+
     // 引擎内部对 focusProvider/performer 用 weak，测试需在测例生命周期里持有它们
     private var providers: [StaticFocusProvider] = []
     private var performers: [RecordingPerformer] = []
@@ -154,6 +191,7 @@ private final class RecordingPerformer: TextInjectionPerforming {
         case accessibility(String)
         case appleScript(String)
         case clipboard(String)
+        case returnKey
     }
 
     private let accessibilityResult: Bool
@@ -178,6 +216,10 @@ private final class RecordingPerformer: TextInjectionPerforming {
 
     func injectViaClipboard(_ text: String) {
         calls.append(.clipboard(text))
+    }
+
+    func pressReturnKey() {
+        calls.append(.returnKey)
     }
 }
 
