@@ -29,6 +29,14 @@ final class TextInjector {
         engine.pressEnter()
     }
 
+    func pressShiftEnter() {
+        engine.pressShiftEnter()
+    }
+
+    func clear() {
+        engine.clear()
+    }
+
     // MARK: - 获取焦点文本元素（单次查询，避免重复 IPC）
 
     private func focusedTextSnapshot() -> FocusSnapshot {
@@ -113,6 +121,35 @@ extension TextInjector: TextInjectionPerforming {
         return true
     }
 
+    func clearViaAccessibility(_ element: AXUIElement) -> Bool {
+        var domClass: AnyObject?
+        if AXUIElementCopyAttributeValue(element,
+                                         "AXDOMClassList" as CFString,
+                                         &domClass) == .success {
+            logger.debug("检测到 Web 视图输入框，跳过 AX 清空")
+            return false
+        }
+
+        var settable: DarwinBoolean = false
+        guard AXUIElementIsAttributeSettable(element,
+                                             kAXValueAttribute as CFString,
+                                             &settable) == .success,
+              settable.boolValue else {
+            logger.debug("焦点元素不支持 value 写入")
+            return false
+        }
+
+        let result = AXUIElementSetAttributeValue(element,
+                                                  kAXValueAttribute as CFString,
+                                                  "" as CFTypeRef)
+        if result != .success {
+            logger.debug("AX 设置 value 失败: \(result.rawValue)")
+            return false
+        }
+
+        return true
+    }
+
     // MARK: - 第二层：Apple Events
 
     func injectViaAppleScript(_ text: String) -> Bool {
@@ -171,24 +208,31 @@ extension TextInjector: TextInjectionPerforming {
     }
 
     private func simulatePaste() {
-        let source = CGEventSource(stateID: .hidSystemState)
+        postKey(virtualKey: 0x09, flags: .maskCommand)
+    }
 
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
-        keyDown?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        keyUp?.flags = .maskCommand
-        keyUp?.post(tap: .cghidEventTap)
+    func clearViaKeyboardShortcut() {
+        postKey(virtualKey: 0x00, flags: .maskCommand)
+        postKey(virtualKey: 0x33)
     }
 
     func pressReturnKey() {
+        postKey(virtualKey: 0x24)
+    }
+
+    func pressShiftReturnKey() {
+        postKey(virtualKey: 0x24, flags: .maskShift)
+    }
+
+    private func postKey(virtualKey: CGKeyCode, flags: CGEventFlags = CGEventFlags()) {
         let source = CGEventSource(stateID: .hidSystemState)
 
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x24, keyDown: true)
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: true)
+        keyDown?.flags = flags
         keyDown?.post(tap: .cghidEventTap)
 
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x24, keyDown: false)
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: false)
+        keyUp?.flags = flags
         keyUp?.post(tap: .cghidEventTap)
     }
 }

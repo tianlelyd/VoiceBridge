@@ -38,7 +38,10 @@ protocol TextInjectionPerforming: AnyObject {
     func injectViaAccessibility(_ text: String, element: AXUIElement) -> Bool
     func injectViaAppleScript(_ text: String) -> Bool
     func injectViaClipboard(_ text: String)
+    func clearViaAccessibility(_ element: AXUIElement) -> Bool
+    func clearViaKeyboardShortcut()
     func pressReturnKey()
+    func pressShiftReturnKey()
 }
 
 final class TextInjectionEngine {
@@ -147,6 +150,85 @@ final class TextInjectionEngine {
             logger.warning("回车焦点诊断 app=\(frontmostApp) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
             performer.pressReturnKey()
             logger.info("回车触发完成")
+        }
+    }
+
+    func pressShiftEnter() {
+        logger.info("开始触发 Shift+回车")
+
+        guard let focusProvider, let performer else {
+            logger.warning("依赖已释放，丢弃 Shift+回车事件")
+            return
+        }
+
+        let snapshot = focusProvider.currentFocusSnapshot()
+        let frontmostApp = snapshot.frontmostBundleIdentifier ?? "?"
+        let shouldUseIntentFallback = Self.intentFallbackBundleIdentifiers.contains(frontmostApp)
+
+        switch snapshot.state {
+        case .unavailable(let axError):
+            logger.warning("Shift+回车焦点诊断 app=\(frontmostApp) 获取焦点元素失败 AXError=\(axError)")
+
+            if shouldUseIntentFallback {
+                logger.warning("前台应用 \(frontmostApp) 无法确认输入框焦点，按用户意图触发 Shift+回车")
+                performer.pressShiftReturnKey()
+                logger.info("Shift+回车触发完成")
+                return
+            }
+
+            logger.warning("当前无活跃输入框，丢弃 Shift+回车事件")
+
+        case .nonInput(let role, let subrole, let identifier):
+            logger.warning("Shift+回车焦点诊断 app=\(frontmostApp) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
+            logger.warning("当前无活跃输入框，丢弃 Shift+回车事件")
+
+        case .textInput(let role, let subrole, let identifier, _):
+            logger.warning("Shift+回车焦点诊断 app=\(frontmostApp) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
+            performer.pressShiftReturnKey()
+            logger.info("Shift+回车触发完成")
+        }
+    }
+
+    func clear() {
+        logger.info("开始清空输入框")
+
+        guard let focusProvider, let performer else {
+            logger.warning("依赖已释放，丢弃清空事件")
+            return
+        }
+
+        let snapshot = focusProvider.currentFocusSnapshot()
+        let frontmostApp = snapshot.frontmostBundleIdentifier ?? "?"
+        let shouldUseIntentFallback = Self.intentFallbackBundleIdentifiers.contains(frontmostApp)
+
+        switch snapshot.state {
+        case .unavailable(let axError):
+            logger.warning("清空焦点诊断 app=\(frontmostApp) 获取焦点元素失败 AXError=\(axError)")
+
+            if shouldUseIntentFallback {
+                logger.warning("前台应用 \(frontmostApp) 无法确认输入框焦点，按用户意图触发清空")
+                performer.clearViaKeyboardShortcut()
+                logger.info("清空触发完成")
+                return
+            }
+
+            logger.warning("当前无活跃输入框，丢弃清空事件")
+
+        case .nonInput(let role, let subrole, let identifier):
+            logger.warning("清空焦点诊断 app=\(frontmostApp) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
+            logger.warning("当前无活跃输入框，丢弃清空事件")
+
+        case .textInput(let role, let subrole, let identifier, let element):
+            logger.warning("清空焦点诊断 app=\(frontmostApp) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
+
+            if performer.clearViaAccessibility(element) {
+                logger.info("Accessibility API 清空成功")
+                return
+            }
+
+            logger.warning("Accessibility API 清空失败，降级到快捷键清空")
+            performer.clearViaKeyboardShortcut()
+            logger.info("清空触发完成")
         }
     }
 

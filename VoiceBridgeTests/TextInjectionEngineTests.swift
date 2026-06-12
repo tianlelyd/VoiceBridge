@@ -149,6 +149,93 @@ final class TextInjectionEngineTests: XCTestCase {
         XCTAssertTrue(recorder.calls.isEmpty)
     }
 
+    func testTextInputShiftEnterPressesShiftReturnKey() {
+        let recorder = RecordingPerformer()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.TextEdit",
+            state: .textInput(role: "AXTextArea", subrole: nil, identifier: "document",
+                              element: AXUIElementCreateSystemWide())
+        ), performer: recorder)
+
+        engine.pressShiftEnter()
+
+        XCTAssertEqual(recorder.calls, [.shiftReturnKey])
+    }
+
+    func testIntentFallbackUnavailableShiftEnterPressesShiftReturnKey() {
+        let recorder = RecordingPerformer()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.electron.lark",
+            state: .unavailable(axError: -25212)
+        ), performer: recorder)
+
+        engine.pressShiftEnter()
+
+        XCTAssertEqual(recorder.calls, [.shiftReturnKey])
+    }
+
+    func testNonInputShiftEnterDropsEvent() {
+        let recorder = RecordingPerformer()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.dt.Xcode",
+            state: .nonInput(role: "AXButton", subrole: "AXSwitch", identifier: "foo")
+        ), performer: recorder)
+
+        engine.pressShiftEnter()
+
+        XCTAssertTrue(recorder.calls.isEmpty)
+    }
+
+    func testTextInputClearUsesAccessibilityWhenAvailable() {
+        let recorder = RecordingPerformer(clearAccessibilityResult: true)
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.TextEdit",
+            state: .textInput(role: "AXTextArea", subrole: nil, identifier: "document",
+                              element: AXUIElementCreateSystemWide())
+        ), performer: recorder)
+
+        engine.clear()
+
+        XCTAssertEqual(recorder.calls, [.clearAccessibility])
+    }
+
+    func testTextInputClearFallsBackToKeyboardShortcut() {
+        let recorder = RecordingPerformer(clearAccessibilityResult: false)
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.TextEdit",
+            state: .textInput(role: "AXTextArea", subrole: nil, identifier: "document",
+                              element: AXUIElementCreateSystemWide())
+        ), performer: recorder)
+
+        engine.clear()
+
+        XCTAssertEqual(recorder.calls, [.clearAccessibility, .clearKeyboardShortcut])
+    }
+
+    func testIntentFallbackUnavailableClearUsesKeyboardShortcut() {
+        let recorder = RecordingPerformer()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.electron.lark",
+            state: .unavailable(axError: -25212)
+        ), performer: recorder)
+
+        engine.clear()
+
+        XCTAssertEqual(recorder.calls, [.clearKeyboardShortcut])
+    }
+
+    func testNonInputClearDropsEvent() {
+        let recorder = RecordingPerformer()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.dt.Xcode",
+            state: .nonInput(role: "AXButton", subrole: "AXSwitch", identifier: "foo")
+        ), performer: recorder)
+
+        engine.clear()
+
+        XCTAssertTrue(recorder.calls.isEmpty)
+    }
+
     // 引擎内部对 focusProvider/performer 用 weak，测试需在测例生命周期里持有它们
     private var providers: [StaticFocusProvider] = []
     private var performers: [RecordingPerformer] = []
@@ -192,16 +279,23 @@ private final class RecordingPerformer: TextInjectionPerforming {
         case appleScript(String)
         case clipboard(String)
         case returnKey
+        case shiftReturnKey
+        case clearAccessibility
+        case clearKeyboardShortcut
     }
 
     private let accessibilityResult: Bool
     private let appleScriptResult: Bool
+    private let clearAccessibilityResult: Bool
 
     private(set) var calls: [Call] = []
 
-    init(accessibilityResult: Bool = false, appleScriptResult: Bool = false) {
+    init(accessibilityResult: Bool = false,
+         appleScriptResult: Bool = false,
+         clearAccessibilityResult: Bool = false) {
         self.accessibilityResult = accessibilityResult
         self.appleScriptResult = appleScriptResult
+        self.clearAccessibilityResult = clearAccessibilityResult
     }
 
     func injectViaAccessibility(_ text: String, element: AXUIElement) -> Bool {
@@ -218,8 +312,21 @@ private final class RecordingPerformer: TextInjectionPerforming {
         calls.append(.clipboard(text))
     }
 
+    func clearViaAccessibility(_ element: AXUIElement) -> Bool {
+        calls.append(.clearAccessibility)
+        return clearAccessibilityResult
+    }
+
+    func clearViaKeyboardShortcut() {
+        calls.append(.clearKeyboardShortcut)
+    }
+
     func pressReturnKey() {
         calls.append(.returnKey)
+    }
+
+    func pressShiftReturnKey() {
+        calls.append(.shiftReturnKey)
     }
 }
 

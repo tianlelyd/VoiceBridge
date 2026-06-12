@@ -17,6 +17,16 @@ struct VoiceBridgeApp: App {
                 TextInjector.shared.pressEnter()
             }
         }
+        FeishuClient.shared.onClearReceived = {
+            DispatchQueue.main.async {
+                TextInjector.shared.clear()
+            }
+        }
+        FeishuClient.shared.onShiftEnterReceived = {
+            DispatchQueue.main.async {
+                TextInjector.shared.pressShiftEnter()
+            }
+        }
     }
 
     var body: some Scene {

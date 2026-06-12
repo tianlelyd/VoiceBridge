@@ -24,6 +24,8 @@ final class FeishuClient {
 
     var onTextReceived: ((String) -> Void)?
     var onEnterReceived: (() -> Void)?
+    var onClearReceived: (() -> Void)?
+    var onShiftEnterReceived: (() -> Void)?
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var pingTimer: Timer?
@@ -263,9 +265,14 @@ final class FeishuClient {
                 }
 
                 logger.info("收到机器人菜单事件: \(eventKey)")
-                if eventKey == "enter" {
+                switch eventKey {
+                case "enter":
                     self.onEnterReceived?()
-                } else {
+                case "clear":
+                    self.onClearReceived?()
+                case "shift_enter":
+                    self.onShiftEnterReceived?()
+                default:
                     logger.debug("忽略未处理的机器人菜单事件: \(eventKey)")
                 }
                 return
