@@ -8,12 +8,23 @@
 
 /* Begin PBXFileReference section */
 		EB16D4B72F6E70F1000B0D7C /* VoiceBridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VoiceBridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000012F70000100000001 /* VoiceBridgeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoiceBridgeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EB16D4B92F6E70F1000B0D7C /* VoiceBridge */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = VoiceBridge;
+			sourceTree = "<group>";
+		};
+		A10000022F70000100000001 /* VoiceBridgeTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VoiceBridgeTests;
+			sourceTree = "<group>";
+		};
+		A100000C2F70000100000001 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VoiceBridge/Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -26,13 +37,31 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A10000032F70000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		A10000072F70000100000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EB16D4AF2F6E70F1000B0D7C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB16D4B62F6E70F1000B0D7C;
+			remoteInfo = VoiceBridge;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXGroup section */
 		EB16D4AE2F6E70F1000B0D7C = {
 			isa = PBXGroup;
 			children = (
 				EB16D4B92F6E70F1000B0D7C /* VoiceBridge */,
+				A10000022F70000100000001 /* VoiceBridgeTests */,
 				EB16D4B82F6E70F1000B0D7C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				EB16D4B72F6E70F1000B0D7C /* VoiceBridge.app */,
+				A10000012F70000100000001 /* VoiceBridgeTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +100,30 @@
 			productReference = EB16D4B72F6E70F1000B0D7C /* VoiceBridge.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A10000062F70000100000001 /* VoiceBridgeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A100000B2F70000100000001 /* Build configuration list for PBXNativeTarget "VoiceBridgeTests" */;
+			buildPhases = (
+				A10000052F70000100000001 /* Sources */,
+				A10000032F70000100000001 /* Frameworks */,
+				A10000042F70000100000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A10000082F70000100000001 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A10000022F70000100000001 /* VoiceBridgeTests */,
+				A100000C2F70000100000001 /* Shared */,
+			);
+			name = VoiceBridgeTests;
+			packageProductDependencies = (
+			);
+			productName = VoiceBridgeTests;
+			productReference = A10000012F70000100000001 /* VoiceBridgeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +136,10 @@
 				TargetAttributes = {
 					EB16D4B62F6E70F1000B0D7C = {
 						CreatedOnToolsVersion = 26.0;
+					};
+					A10000062F70000100000001 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = EB16D4B62F6E70F1000B0D7C;
 					};
 				};
 			};
@@ -100,12 +158,20 @@
 			projectRoot = "";
 			targets = (
 				EB16D4B62F6E70F1000B0D7C /* VoiceBridge */,
+				A10000062F70000100000001 /* VoiceBridgeTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		EB16D4B52F6E70F1000B0D7C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000042F70000100000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +188,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A10000052F70000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10000082F70000100000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB16D4B62F6E70F1000B0D7C /* VoiceBridge */;
+			targetProxy = A10000072F70000100000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		EB16D4C22F6E70F3000B0D7C /* Debug */ = {
@@ -313,6 +394,47 @@
 			};
 			name = Release;
 		};
+		A10000092F70000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 97ZLXJHDD3;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.doodto.VoiceBridgeTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A100000A2F70000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 97ZLXJHDD3;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.doodto.VoiceBridgeTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -330,6 +452,15 @@
 			buildConfigurations = (
 				EB16D4C52F6E70F3000B0D7C /* Debug */,
 				EB16D4C62F6E70F3000B0D7C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A100000B2F70000100000001 /* Build configuration list for PBXNativeTarget "VoiceBridgeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000092F70000100000001 /* Debug */,
+				A100000A2F70000100000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
