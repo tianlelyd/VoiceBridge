@@ -46,16 +46,14 @@ VoiceBridge — macOS 菜单栏 App，通过飞书机器人 WebSocket 长链接�
 
 ### 2. 编译并启动
 
+Debug 和 Release 均固定使用 `Developer ID Application: YanDong Li (97ZLXJHDD3)`，保持相同 Bundle ID 和签名要求。Debug 独立启用 `get-task-allow`；Release 禁用。不要临时改回 Apple Development 或 ad-hoc 签名。
+
 ```bash
-# 关闭已运行的旧实例
-pkill -x VoiceBridge 2>/dev/null || true
-
-# 编译（-quiet 减少输出噪音）
-xcodebuild -scheme VoiceBridge -configuration Debug build -quiet
-
-# 启动（动态解析 DerivedData 路径，避免硬编码哈希）
-open "$(xcodebuild -scheme VoiceBridge -configuration Debug -showBuildSettings 2>/dev/null | awk '/^ *BUILT_PRODUCTS_DIR =/{print $3}')/VoiceBridge.app"
+# 构建并验证 Debug，备份已安装版本，安装到固定路径后重启
+bash scripts/run-dev.sh
 ```
+
+始终从 `/Applications/VoiceBridge.app` 启动日常开发测试版本，避免与 DerivedData 中的同名副本混淆。首次从旧开发签名切换时，可能需要重新添加辅助功能授权。机器人配置仍复用原有存储。
 
 ## 项目规格文档
 详见 VoiceBridge-Spec.md

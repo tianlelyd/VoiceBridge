@@ -134,7 +134,15 @@ macOS 菜单栏常驻 App，通过飞书机器人 WebSocket 长连接接收手�
 
 从 [Releases](https://github.com/tianlelyd/VoiceBridge/releases) 下载最新 DMG。
 
-### 设置
+### 本地开发签名
+
+Debug 和 Release 均使用 `Developer ID Application: YanDong Li (97ZLXJHDD3)`，本机钥匙串需安装对应证书和私钥。运行 `bash scripts/run-dev.sh` 可构建 Debug、备份现有应用，并安装到 `/Applications/VoiceBridge.app` 后打开；机器人配置继续复用。Debug 允许调试器附加，Release 不允许。
+
+首次从 Apple Development 签名切换时，可能需要在系统设置中移除旧的 VoiceBridge 辅助功能授权条目，再添加 `/Applications/VoiceBridge.app`。后续保持相同签名身份，不要在日常测试中混用其他签名。
+
+签名验收：在同一个 DerivedData 目录完成 Debug 和 Release 构建后，运行 `python3 scripts/verify-signing.py <DerivedData>/Build/Products build/signing-verification.json`，检查证书、Bundle ID、签名要求及调试权限，并保存 JSON 报告。
+
+### 设置向导
 
 首次启动会进入设置向导，三步完成：
 
