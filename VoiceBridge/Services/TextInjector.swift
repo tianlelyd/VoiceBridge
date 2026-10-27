@@ -45,7 +45,9 @@ final class TextInjector {
 
     private func focusedTextSnapshot() -> FocusSnapshot {
         let systemWide = AXUIElementCreateSystemWide()
-        let appBundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let app = Self.focusedApplication(systemWide)
+        let appBundle = app?.bundleIdentifier
+        let appName = app?.localizedName ?? app?.executableURL?.lastPathComponent
 
         var focusedRef: AnyObject?
         let copyResult = AXUIElementCopyAttributeValue(systemWide,
@@ -53,7 +55,8 @@ final class TextInjector {
                                                         &focusedRef)
         guard copyResult == .success else {
             return FocusSnapshot(frontmostBundleIdentifier: appBundle,
-                                 state: .unavailable(axError: copyResult.rawValue))
+                                 state: .unavailable(axError: copyResult.rawValue),
+                                 frontmostAppName: appName)
         }
 
         let element = focusedRef as! AXUIElement
@@ -73,14 +76,28 @@ final class TextInjector {
             return FocusSnapshot(frontmostBundleIdentifier: appBundle,
                                  state: .nonInput(role: roleStr,
                                                   subrole: subroleStr,
-                                                  identifier: idStr))
+                                                  identifier: idStr),
+                                 frontmostAppName: appName)
         }
 
         return FocusSnapshot(frontmostBundleIdentifier: appBundle,
                              state: .textInput(role: r,
                                                subrole: subroleStr,
                                                identifier: idStr,
-                                               element: element))
+                                               element: element),
+                             frontmostAppName: appName)
+    }
+
+    /// 以 AX 的焦点应用为准（和焦点元素同一来源）；拿不到再退回 NSWorkspace
+    private static func focusedApplication(_ systemWide: AXUIElement) -> NSRunningApplication? {
+        var appRef: AnyObject?
+        var pid: pid_t = 0
+        if AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &appRef) == .success,
+           let appRef, AXUIElementGetPid(appRef as! AXUIElement, &pid) == .success,
+           let app = NSRunningApplication(processIdentifier: pid) {
+            return app
+        }
+        return NSWorkspace.shared.frontmostApplication
     }
 }
 

@@ -43,6 +43,17 @@ struct FocusSnapshot {
 
     let frontmostBundleIdentifier: String?
     let state: State
+    /// 只用于诊断日志；没有 bundle id 的进程（命令行程序）也能认出来
+    var frontmostAppName: String? = nil
+
+    var appLabel: String {
+        switch (frontmostAppName, frontmostBundleIdentifier) {
+        case let (name?, bundle?): return "\(name)(\(bundle))"
+        case let (name?, nil): return name
+        case let (nil, bundle?): return bundle
+        case (nil, nil): return "?"
+        }
+    }
 }
 
 protocol FocusSnapshotProviding: AnyObject {
@@ -93,7 +104,7 @@ final class TextInjectionEngine {
 
         switch snapshot.state {
         case .unavailable(let axError):
-            logger.warning("焦点诊断 app=\(frontmostApp) 获取焦点元素失败 AXError=\(axError)")
+            logger.warning("焦点诊断 app=\(snapshot.appLabel) 获取焦点元素失败 AXError=\(axError)")
 
             if shouldUseIntentFallback {
                 runIntentFallback(text, app: frontmostApp, performer: performer,
@@ -105,12 +116,12 @@ final class TextInjectionEngine {
             return .noFocus
 
         case .nonInput(let role, let subrole, let identifier):
-            logger.warning("焦点诊断 app=\(frontmostApp) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
+            logger.warning("焦点诊断 app=\(snapshot.appLabel) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
             logger.warning("当前无活跃输入框，丢弃文本")
             return .noFocus
 
         case .textInput(let role, let subrole, let identifier, let element):
-            logger.warning("焦点诊断 app=\(frontmostApp) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
+            logger.warning("焦点诊断 app=\(snapshot.appLabel) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
 
             if performer.injectViaAccessibility(text, element: element) {
                 logger.info("Accessibility API 注入成功")
@@ -151,7 +162,7 @@ final class TextInjectionEngine {
 
         switch snapshot.state {
         case .unavailable(let axError):
-            logger.warning("回车焦点诊断 app=\(frontmostApp) 获取焦点元素失败 AXError=\(axError)")
+            logger.warning("回车焦点诊断 app=\(snapshot.appLabel) 获取焦点元素失败 AXError=\(axError)")
 
             if shouldUseIntentFallback {
                 logger.warning("前台应用 \(frontmostApp) 无法确认输入框焦点，按用户意图触发回车")
@@ -164,12 +175,12 @@ final class TextInjectionEngine {
             return .noFocus
 
         case .nonInput(let role, let subrole, let identifier):
-            logger.warning("回车焦点诊断 app=\(frontmostApp) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
+            logger.warning("回车焦点诊断 app=\(snapshot.appLabel) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
             logger.warning("当前无活跃输入框，丢弃回车事件")
             return .noFocus
 
         case .textInput(let role, let subrole, let identifier, _):
-            logger.warning("回车焦点诊断 app=\(frontmostApp) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
+            logger.warning("回车焦点诊断 app=\(snapshot.appLabel) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
             performer.pressReturnKey()
             logger.info("回车触发完成")
             return .injected(.keyEvent)
@@ -191,7 +202,7 @@ final class TextInjectionEngine {
 
         switch snapshot.state {
         case .unavailable(let axError):
-            logger.warning("Shift+回车焦点诊断 app=\(frontmostApp) 获取焦点元素失败 AXError=\(axError)")
+            logger.warning("Shift+回车焦点诊断 app=\(snapshot.appLabel) 获取焦点元素失败 AXError=\(axError)")
 
             if shouldUseIntentFallback {
                 logger.warning("前台应用 \(frontmostApp) 无法确认输入框焦点，按用户意图触发 Shift+回车")
@@ -204,12 +215,12 @@ final class TextInjectionEngine {
             return .noFocus
 
         case .nonInput(let role, let subrole, let identifier):
-            logger.warning("Shift+回车焦点诊断 app=\(frontmostApp) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
+            logger.warning("Shift+回车焦点诊断 app=\(snapshot.appLabel) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
             logger.warning("当前无活跃输入框，丢弃 Shift+回车事件")
             return .noFocus
 
         case .textInput(let role, let subrole, let identifier, _):
-            logger.warning("Shift+回车焦点诊断 app=\(frontmostApp) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
+            logger.warning("Shift+回车焦点诊断 app=\(snapshot.appLabel) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
             performer.pressShiftReturnKey()
             logger.info("Shift+回车触发完成")
             return .injected(.keyEvent)
@@ -231,7 +242,7 @@ final class TextInjectionEngine {
 
         switch snapshot.state {
         case .unavailable(let axError):
-            logger.warning("清空焦点诊断 app=\(frontmostApp) 获取焦点元素失败 AXError=\(axError)")
+            logger.warning("清空焦点诊断 app=\(snapshot.appLabel) 获取焦点元素失败 AXError=\(axError)")
 
             if shouldUseIntentFallback {
                 logger.warning("前台应用 \(frontmostApp) 无法确认输入框焦点，按用户意图触发清空")
@@ -244,12 +255,12 @@ final class TextInjectionEngine {
             return .noFocus
 
         case .nonInput(let role, let subrole, let identifier):
-            logger.warning("清空焦点诊断 app=\(frontmostApp) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
+            logger.warning("清空焦点诊断 app=\(snapshot.appLabel) role=\(role ?? "nil") subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 不在白名单")
             logger.warning("当前无活跃输入框，丢弃清空事件")
             return .noFocus
 
         case .textInput(let role, let subrole, let identifier, let element):
-            logger.warning("清空焦点诊断 app=\(frontmostApp) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
+            logger.warning("清空焦点诊断 app=\(snapshot.appLabel) role=\(role) subrole=\(subrole ?? "nil") id=\(identifier ?? "nil") 命中白名单")
 
             if performer.clearViaAccessibility(element) {
                 logger.info("Accessibility API 清空成功")

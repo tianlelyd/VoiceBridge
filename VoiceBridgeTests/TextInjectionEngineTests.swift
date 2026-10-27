@@ -278,17 +278,52 @@ final class TextInjectionEngineTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - 焦点诊断日志
+
+    func testDiagnosticNamesAppWithoutBundleIdentifier() {
+        let logger = RecordingLogger()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: nil,
+            state: .nonInput(role: "AXWindow", subrole: nil, identifier: nil),
+            frontmostAppName: "e2e-window"
+        ), performer: RecordingPerformer(), logger: logger)
+
+        engine.inject("hello")
+
+        XCTAssertTrue(logger.warnings.contains { $0.contains("app=e2e-window ") }, "\(logger.warnings)")
+    }
+
+    func testDiagnosticShowsAppNameAndBundleIdentifier() {
+        let logger = RecordingLogger()
+        let engine = makeEngine(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.dt.Xcode",
+            state: .unavailable(axError: -25212),
+            frontmostAppName: "Xcode"
+        ), performer: RecordingPerformer(), logger: logger)
+
+        engine.pressEnter()
+
+        XCTAssertTrue(logger.warnings.contains { $0.contains("app=Xcode(com.apple.dt.Xcode) ") }, "\(logger.warnings)")
+    }
+
     private func makeEngine(snapshot: FocusSnapshot,
-                            performer: RecordingPerformer) -> TextInjectionEngine {
+                            performer: RecordingPerformer,
+                            logger: TextInjectionLogging = NoOpLogger()) -> TextInjectionEngine {
         let provider = StaticFocusProvider(snapshot: snapshot)
         providers.append(provider)
         performers.append(performer)
         return TextInjectionEngine(
             focusProvider: provider,
             performer: performer,
-            logger: NoOpLogger()
+            logger: logger
         )
     }
+}
+
+private final class RecordingLogger: TextInjectionLogging {
+    private(set) var warnings: [String] = []
+    func info(_ message: String) {}
+    func warning(_ message: String) { warnings.append(message) }
 }
 
 private final class StaticFocusProvider: FocusSnapshotProviding {
