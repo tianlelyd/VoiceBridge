@@ -20,8 +20,6 @@ final class LocalBridgeServer {
         let id: UUID
         let deviceId: String
         let deviceName: String?
-        let remote: String
-        let connectedAt: Date
     }
 
     private(set) var state: State = .stopped
@@ -35,18 +33,11 @@ final class LocalBridgeServer {
 
     /// 某台设备鉴权成功（deviceId, deviceName）
     @ObservationIgnored var onAuthenticated: ((String, String?) -> Void)?
-    /// 处理完一条 insert/key（deviceId, 消息 id, 结果）
-    @ObservationIgnored var onAck: ((String, String, LocalBridgeAck) -> Void)?
 
-    @ObservationIgnored private let macId: String
-    @ObservationIgnored private let macName: String
+    @ObservationIgnored private let environment: LocalBridgeSession.Environment
     @ObservationIgnored private let requestedPort: UInt16
     @ObservationIgnored private let advertisesBonjour: Bool
     @ObservationIgnored private let handshakeTimeout: TimeInterval
-    @ObservationIgnored private let hosts: () -> [[String: String]]
-    @ObservationIgnored private let keyForDevice: (String) -> SymmetricKey?
-    @ObservationIgnored private let perform: (LocalBridgeAction) -> InjectionOutcome
-    @ObservationIgnored private let deduplicator = MessageDeduplicator<LocalBridgeAck>()
     @ObservationIgnored private var listener: NWListener?
     @ObservationIgnored private var connections: [UUID: (connection: NWConnection, session: LocalBridgeSession)] = [:]
 
@@ -58,17 +49,17 @@ final class LocalBridgeServer {
          port: UInt16 = LocalBridgeWire.defaultPort,
          advertisesBonjour: Bool = true,
          handshakeTimeout: TimeInterval = 10,
-         hosts: @escaping () -> [[String: String]],
+         hosts: @escaping () -> [LocalBridgeHost],
          keyForDevice: @escaping (String) -> SymmetricKey?,
          perform: @escaping (LocalBridgeAction) -> InjectionOutcome) {
-        self.macId = macId
-        self.macName = macName
+        // 去重表跨连接共享：断线重发同一 id 也只注入一次
+        self.environment = LocalBridgeSession.Environment(
+            macId: macId, macName: macName, hosts: hosts, keyForDevice: keyForDevice,
+            perform: perform, deduplicator: MessageDeduplicator<LocalBridgeAck>()
+        )
         self.requestedPort = port
         self.advertisesBonjour = advertisesBonjour
         self.handshakeTimeout = handshakeTimeout
-        self.hosts = hosts
-        self.keyForDevice = keyForDevice
-        self.perform = perform
     }
 
     // MARK: - 启停
@@ -88,9 +79,9 @@ final class LocalBridgeServer {
 
         if advertisesBonjour {
             listener.service = NWListener.Service(
-                name: macName,
+                name: environment.macName,
                 type: LocalBridgeWire.serviceType,
-                txtRecord: NWTXTRecord(["mac": macId, "v": String(LocalBridgeWire.version)])
+                txtRecord: NWTXTRecord(["mac": environment.macId, "v": String(LocalBridgeWire.version)])
             )
         }
         listener.stateUpdateHandler = { [weak self, weak listener] newState in
@@ -147,14 +138,7 @@ final class LocalBridgeServer {
 
     private func accept(_ connection: NWConnection) {
         let id = UUID()
-        let session = LocalBridgeSession(environment: LocalBridgeSession.Environment(
-            macId: macId,
-            macName: macName,
-            hosts: hosts,
-            keyForDevice: keyForDevice,
-            perform: perform,
-            deduplicator: deduplicator
-        ))
+        let session = LocalBridgeSession(environment: environment)
         connections[id] = (connection, session)
         let remote = "\(connection.endpoint)"
         logger.info("新连接 \(remote, privacy: .public)")
@@ -212,22 +196,13 @@ final class LocalBridgeServer {
     private func handle(_ data: Data, entry: (connection: NWConnection, session: LocalBridgeSession), id: UUID) {
         let session = entry.session
         let wasAuthenticated = session.isAuthenticated
-        let previousAck = session.lastAck?.id
 
         let outputs = session.receive(data)
 
         if !wasAuthenticated, session.isAuthenticated, let deviceId = session.deviceId {
             logger.info("设备鉴权成功 \(deviceId, privacy: .public)")
-            peers.append(Peer(id: id, deviceId: deviceId, deviceName: session.deviceName,
-                              remote: "\(entry.connection.endpoint)", connectedAt: Date()))
+            peers.append(Peer(id: id, deviceId: deviceId, deviceName: session.deviceName))
             onAuthenticated?(deviceId, session.deviceName)
-        }
-        if let last = session.lastAck, last.id != previousAck, let deviceId = session.deviceId {
-            logger.info("消息 \(last.id, privacy: .public) → \(last.ack.status.rawValue, privacy: .public) \(last.ack.method ?? "", privacy: .public)")
-            onAck?(deviceId, last.id, last.ack)
-        }
-        if outputs.contains(.close), !session.isAuthenticated {
-            logger.warning("鉴权失败，断开 \(entry.connection.endpoint.debugDescription, privacy: .public)")
         }
 
         apply(outputs, to: entry.connection)

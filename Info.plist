@@ -8,5 +8,11 @@
 	<string>需要辅助功能权限以检测焦点位置并插入语音转写的文本</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>需要自动化权限以在应用中插入文本</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_aiinput._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>需要本地网络权限以接收 iPhone/iPad 上 AIInput 直连发送的文字</string>
 </dict>
 </plist>

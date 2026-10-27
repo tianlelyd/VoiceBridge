@@ -21,7 +21,8 @@ Package.resolved
 .env
 .env.*
 
-docs/
+docs/*
+!docs/local-bridge-protocol.md
 
 # Superpowers
 .superpowers/

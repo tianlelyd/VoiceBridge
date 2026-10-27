@@ -22,7 +22,7 @@ final class LocalBridgeSessionTests: XCTestCase {
         LocalBridgeSession(environment: LocalBridgeSession.Environment(
             macId: "MAC-1",
             macName: "Test Mac",
-            hosts: { [["kind": "lan", "host": "test.local"]] },
+            hosts: { [LocalBridgeHost(kind: .lan, host: "test.local")] },
             keyForDevice: { [unowned self] in $0 == self.deviceId ? self.key : nil },
             perform: { [unowned self] action in
                 self.performed.append(action)

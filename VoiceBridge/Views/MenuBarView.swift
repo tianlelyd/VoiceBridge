@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarView: View {
 
     @State private var feishu = FeishuClient.shared
+    @State private var localBridge = LocalBridgeService.shared
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
@@ -21,6 +22,15 @@ struct MenuBarView: View {
                 || !BotManager.shared.isConfigured
             if needsOnboarding {
                 (NSApp.delegate as? AppDelegate)?.showOnboarding()
+            }
+        }
+
+        // 手机直连
+        if !localBridge.devices.isEmpty {
+            Divider()
+            Text(localBridgeStatusText)
+            ForEach(localBridge.peers) { peer in
+                Text("    📱 \(peer.deviceName ?? peer.deviceId)")
             }
         }
 
@@ -45,6 +55,15 @@ struct MenuBarView: View {
     }
 
     // MARK: - 状态
+
+    private var localBridgeStatusText: String {
+        switch localBridge.state {
+        case .stopped: return "手机直连：未启动"
+        case .starting: return "手机直连：启动中..."
+        case .listening: return localBridge.peers.isEmpty ? "手机直连：等待设备" : "手机直连：\(localBridge.peers.count) 台已连接"
+        case .failed(let message): return "手机直连：失败（\(message)）"
+        }
+    }
 
     private var statusView: Text {
         // 适当缩小 Emoji 的尺寸，并略微上移对齐中线，使其更像一个精致的小圆点

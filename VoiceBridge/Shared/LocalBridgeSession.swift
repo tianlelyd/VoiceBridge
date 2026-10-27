@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import os
 
 enum LocalBridgeKey: String, Equatable {
     case enter
@@ -20,14 +21,18 @@ struct LocalBridgeAck: Equatable {
     }
 
     let status: Status
-    var method: String?
-    var message: String?
+    var method: String? = nil
+    var message: String? = nil
 
-    init(status: Status, method: String? = nil, message: String? = nil) {
-        self.status = status
-        self.method = method
-        self.message = message
+    var fields: [String: Any] {
+        var out: [String: Any] = ["status": status.rawValue]
+        if let method { out["method"] = method }
+        if let message { out["message"] = message }
+        return out
     }
+}
+
+extension LocalBridgeAck {
 
     init(_ outcome: InjectionOutcome) {
         switch outcome {
@@ -35,13 +40,6 @@ struct LocalBridgeAck: Equatable {
         case .noFocus: self.init(status: .noFocus)
         case .error(let message): self.init(status: .error, message: message)
         }
-    }
-
-    var fields: [String: Any] {
-        var out: [String: Any] = ["status": status.rawValue]
-        if let method { out["method"] = method }
-        if let message { out["message"] = message }
-        return out
     }
 }
 
@@ -57,7 +55,7 @@ final class LocalBridgeSession {
     struct Environment {
         let macId: String
         let macName: String
-        let hosts: () -> [[String: String]]
+        let hosts: () -> [LocalBridgeHost]
         let keyForDevice: (String) -> SymmetricKey?
         let perform: (LocalBridgeAction) -> InjectionOutcome
         let deduplicator: MessageDeduplicator<LocalBridgeAck>
@@ -74,8 +72,9 @@ final class LocalBridgeSession {
 
     private(set) var deviceId: String?
     private(set) var deviceName: String?
-    /// 最近一条 insert/key 的处理结果，给日志和界面用
-    private(set) var lastAck: (id: String, ack: LocalBridgeAck)?
+
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "VoiceBridge",
+                                category: "LocalBridgeSession")
 
     var isAuthenticated: Bool { sessionKey != nil }
 
@@ -116,7 +115,8 @@ final class LocalBridgeSession {
         }
 
         func fail(_ reason: String) -> [Output] {
-            [.send(LocalBridgeWire.json(["type": "authFail", "reason": reason])), .close]
+            logger.warning("鉴权失败: \(reason, privacy: .public)")
+            return [.send(LocalBridgeWire.json(["type": "authFail", "reason": reason])), .close]
         }
 
         // 原型客户端不带 v，按 1 处理
@@ -141,7 +141,7 @@ final class LocalBridgeSession {
             "sessionId": UUID().uuidString,
             "macId": environment.macId,
             "serverTime": environment.clock().timeIntervalSince1970,
-            "hosts": environment.hosts(),
+            "hosts": environment.hosts().map(\.fields),
         ]))]
     }
 
@@ -162,7 +162,7 @@ final class LocalBridgeSession {
         let started = environment.clock()
         let result = process(type: type, message: message, now: started)
         environment.deduplicator.record(id, value: result)
-        lastAck = (id, result)
+        logger.info("消息 \(id, privacy: .public) → \(result.status.rawValue, privacy: .public) \(result.method ?? result.message ?? "", privacy: .public)")
 
         var fields = result.fields
         if result.status == .injected {

@@ -9,6 +9,8 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var expandedBotId: UUID?
     @State private var showingAddBot = false
+    @State private var localBridge = LocalBridgeService.shared
+    @State private var showingAddDevice = false
 
     var body: some View {
         Form {
@@ -30,6 +32,30 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             } header: {
                 Text("机器人")
+            }
+
+            // 手机直连
+            Section {
+                ForEach(localBridge.devices) { device in
+                    deviceRow(device)
+                }
+
+                Button {
+                    showingAddDevice = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle")
+                        Text("添加设备")
+                    }
+                    .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            } header: {
+                Text("手机直连（AIInput）")
+            } footer: {
+                Text(localBridgeStatusText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             // 权限
@@ -94,6 +120,9 @@ struct SettingsView: View {
         .sheet(isPresented: $showingAddBot) {
             AddBotSheet()
         }
+        .sheet(isPresented: $showingAddDevice) {
+            AddDeviceSheet()
+        }
         .onAppear {
             NSApp.activate()
             permissions.refreshStatus()
@@ -154,6 +183,39 @@ struct SettingsView: View {
                 }
                 .padding(.top, 8)
             }
+        }
+    }
+
+    // MARK: - 设备行
+
+    private func deviceRow(_ device: PairedDevice) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(device.name)
+                Text(deviceStatusText(device))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Button("吊销", role: .destructive) {
+                localBridge.revoke(device)
+            }
+            .controlSize(.small)
+        }
+    }
+
+    private func deviceStatusText(_ device: PairedDevice) -> String {
+        if localBridge.isConnected(device) { return "已连接" }
+        guard let lastSeen = device.lastSeenAt else { return "等待首次连接" }
+        return "上次连接 " + lastSeen.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private var localBridgeStatusText: String {
+        switch localBridge.state {
+        case .stopped: return "未配对设备时不监听"
+        case .starting: return "正在启动…"
+        case .listening(let port): return "监听端口 \(port)，Bonjour \(LocalBridgeWire.serviceType)"
+        case .failed(let message): return "启动失败：\(message)"
         }
     }
 
@@ -267,4 +329,60 @@ struct AddBotSheet: View {
         }
     }
 
+}
+
+// MARK: - 添加设备 Sheet
+
+struct AddDeviceSheet: View {
+
+    @State private var payload: LocalBridgePairingPayload?
+    @State private var qrImage: NSImage?
+    @State private var failed = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("添加设备")
+                .font(.headline)
+
+            Text("用 iPhone/iPad 上的 AIInput 扫描下方二维码")
+                .foregroundColor(.secondary)
+                .font(.callout)
+
+            if let payload, let qrImage {
+                Image(nsImage: qrImage)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 220, height: 220)
+
+                Text(payload.hosts.isEmpty ? "未找到可用地址，手机只能通过 Bonjour 发现"
+                                           : payload.hosts.map(\.host).joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            } else if failed {
+                Text("配对密钥无法写入钥匙串，请重试")
+                    .foregroundColor(.red)
+                    .frame(width: 220, height: 220)
+            } else {
+                ProgressView("正在生成…")
+                    .frame(width: 220, height: 220)
+            }
+
+            Text("二维码包含配对密钥，不要分享给他人")
+                .font(.caption)
+                .foregroundColor(.orange)
+
+            Button("完成") { dismiss() }
+                .buttonStyle(.borderedProminent)
+        }
+        .padding(24)
+        .frame(width: 360, height: 440)
+        .task {
+            payload = await LocalBridgeService.shared.addDevice()
+            qrImage = payload.flatMap { QRCodeGenerator.generate(from: $0.url) }
+            failed = payload == nil
+        }
+    }
 }
