@@ -84,8 +84,9 @@ extension LocalBridgePairingPayload {
 /// 收集本机能给手机直连的地址：局域网主机名/IP，Tailscale 100.x 和 MagicDNS 名
 enum LocalBridgeHosts {
 
-    /// 只认物理网卡上的私网地址和任意网卡上的 Tailscale 网段，其他 VPN、回环、链路本地一律不要
-    static func kind(ipv4: String, interface: String) -> LocalBridgeHost.Kind? {
+    /// 只认硬件网卡（SystemConfiguration 的硬件端口：Wi-Fi、以太网、雷雳网桥）上的私网地址和任意网卡上的 Tailscale 网段。
+    /// 虚拟机/容器的 bridge100+、vmnet*、vnic*，其他 VPN、回环、链路本地一律不要
+    static func kind(ipv4: String, interface: String, hardwareInterfaces: Set<String>) -> LocalBridgeHost.Kind? {
         let parts = ipv4.split(separator: ".").compactMap { UInt8($0) }
         guard parts.count == 4 else { return nil }
         let (a, b) = (parts[0], parts[1])
@@ -93,19 +94,18 @@ enum LocalBridgeHosts {
         if a == 100, (64...127).contains(b) { return .tailscale }
 
         let isPrivate = a == 10 || (a == 172 && (16...31).contains(b)) || (a == 192 && b == 168)
-        let isPhysical = interface.hasPrefix("en") || interface.hasPrefix("bridge")
-        return isPrivate && isPhysical ? .lan : nil
+        return isPrivate && hardwareInterfaces.contains(interface) ? .lan : nil
     }
 
     static func make(localHostName: String?, addresses: [(interface: String, ipv4: String)],
-                     magicDNS: String?) -> [LocalBridgeHost] {
+                     hardwareInterfaces: Set<String>, magicDNS: String?) -> [LocalBridgeHost] {
         var lan: [LocalBridgeHost] = []
         var tailscale: [LocalBridgeHost] = []
         if let localHostName, !localHostName.isEmpty {
             lan.append(LocalBridgeHost(kind: .lan, host: "\(localHostName).local"))
         }
         for (interface, ipv4) in addresses {
-            switch kind(ipv4: ipv4, interface: interface) {
+            switch kind(ipv4: ipv4, interface: interface, hardwareInterfaces: hardwareInterfaces) {
             case .lan: lan.append(LocalBridgeHost(kind: .lan, host: ipv4))
             case .tailscale: tailscale.append(LocalBridgeHost(kind: .tailscale, host: ipv4))
             case nil: break

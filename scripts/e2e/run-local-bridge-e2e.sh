@@ -45,5 +45,17 @@ log show --style compact --start "$START" \
 
 # 配对载荷含密钥，不留在产物里
 rm -f "$OUT/pairing.txt"
+
+echo "== 吊销 E2E 设备并正常重启 VoiceBridge"
+pkill -x VoiceBridge 2>/dev/null || true
+sleep 1
+open -n "$APP" --args --e2e-unpair
+DEVICES="$HOME/Library/Application Support/VoiceBridge/paired-devices.json"
+for _ in $(seq 1 25); do grep -q '"name":"E2E"' "$DEVICES" 2>/dev/null || break; sleep 0.2; done
+if grep -q '"name":"E2E"' "$DEVICES" 2>/dev/null; then
+    echo "- ❌ 收尾：E2E 设备没有被吊销" >> "$OUT/report.md"; STATUS=1
+else
+    echo "- ✅ 收尾：E2E 设备已吊销" >> "$OUT/report.md"
+fi
 echo "== 产物: $OUT"
 exit "$STATUS"

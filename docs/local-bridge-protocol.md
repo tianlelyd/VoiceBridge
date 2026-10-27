@@ -6,7 +6,7 @@ AIInput（iPhone/iPad）在同一局域网或同一 Tailscale 网络里直连 Ma
 
 ## 1. 配对二维码
 
-在 VoiceBridge 设置 →「手机直连（AIInput）」→「添加设备」生成。每次添加生成一个新的 `deviceId` 和 32 字节随机密钥，密钥按 `deviceId` 存入 Mac 钥匙串（`local-bridge-device-<deviceId>`），可在设备列表里吊销。
+在 VoiceBridge 设置 →「手机直连（AIInput）」→「添加设备」生成。每次添加生成一个新的 `deviceId` 和 32 字节随机密钥，密钥按 `deviceId` 存入 Mac 钥匙串（`local-bridge-device-<deviceId>`），可在设备列表里吊销。如果关掉「添加设备」窗口时这台设备还没握手成功过，30 秒内仍没连上就自动删除（设备条目和钥匙串密钥一起删）；App 启动时也会清掉从没握手成功过的设备。
 
 二维码内容：
 
@@ -35,7 +35,7 @@ base64url 无填充（`-`、`_`，不带 `=`）。JSON：
 ```
 
 - `v` 不是 1 时手机应拒绝并提示升级。
-- `hosts` 按建议尝试顺序排列：局域网 `.local` 主机名、物理网卡（`en*`/`bridge*`）上的私网 IPv4、任意网卡上 `100.64.0.0/10` 的 Tailscale 地址、Tailscale MagicDNS 名（来自 `tailscale status --json`，读不到就省略）。其他 VPN（utun 上的私网地址）、回环、链路本地地址不会出现。列表可能为空。
+- `hosts` 按建议尝试顺序排列：局域网 `.local` 主机名、硬件网卡（系统设置里的硬件端口：Wi-Fi、以太网、雷雳网桥）上的私网 IPv4、任意网卡上 `100.64.0.0/10` 的 Tailscale 地址、Tailscale MagicDNS 名（来自 `tailscale status --json`，读不到就省略）。虚拟机/容器网卡（OrbStack、Parallels、互联网共享的 `bridge100+`，VMware 的 `vmnet*`，Parallels 的 `vnic*` 等）、其他 VPN（utun 上的私网地址）、回环、链路本地地址不会出现。列表可能为空。
 - 连接策略：先用 Bonjour 找 `_aiinput._tcp` 且 TXT `mac` 等于 `macId` 的服务；约 1 秒没找到就按 `hosts` 顺序直连 `ws://<host>:<port>/`。authOK 里会带最新的 `hosts`，手机应覆盖本地缓存。
 - Bonjour TXT：`mac=<macId>`，`v=1`；服务名为 `macName`。
 

@@ -68,37 +68,55 @@ final class LocalBridgePairingTests: XCTestCase {
     // MARK: - 地址分类
 
     func testTailscaleRangeIsRecognisedOnAnyInterface() {
-        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "100.101.1.2", interface: "utun4"), .tailscale)
-        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "100.64.0.1", interface: "utun0"), .tailscale)
-        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "100.127.255.254", interface: "utun9"), .tailscale)
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "100.101.1.2", interface: "utun4", hardwareInterfaces: hardware), .tailscale)
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "100.64.0.1", interface: "utun0", hardwareInterfaces: hardware), .tailscale)
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "100.127.255.254", interface: "utun9", hardwareInterfaces: hardware), .tailscale)
     }
 
     func testAddressesJustOutsideTailscaleRangeAreIgnored() {
-        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "100.63.255.255", interface: "utun4"))
-        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "100.128.0.1", interface: "utun4"))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "100.63.255.255", interface: "utun4", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "100.128.0.1", interface: "utun4", hardwareInterfaces: hardware))
     }
 
-    func testPrivateAddressesOnPhysicalInterfacesAreLAN() {
-        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "192.168.1.5", interface: "en0"), .lan)
-        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "10.0.0.8", interface: "en1"), .lan)
-        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "172.20.1.1", interface: "en7"), .lan)
-        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "192.168.2.1", interface: "bridge100"), .lan)
+    /// SystemConfiguration 的硬件端口（networksetup -listallhardwareports）：Wi-Fi、以太网、雷雳网桥
+    private let hardware: Set<String> = ["en0", "en1", "en7", "en8", "bridge0"]
+
+    func testPrivateAddressesOnHardwareInterfacesAreLAN() {
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "192.168.1.5", interface: "en0", hardwareInterfaces: hardware), .lan)
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "10.0.0.8", interface: "en1", hardwareInterfaces: hardware), .lan)
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "172.20.1.1", interface: "en7", hardwareInterfaces: hardware), .lan)
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "169.254.0.0", interface: "bridge0", hardwareInterfaces: hardware), nil)
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "192.168.3.2", interface: "bridge0", hardwareInterfaces: hardware), .lan)
+    }
+
+    /// OrbStack/Parallels/互联网共享建 bridge100+，VMware 是 vmnet*，Parallels 还有 vnic*，Docker/Lima 有 enN 以外的虚拟口；都不在硬件端口里
+    func testPrivateAddressesOnVirtualInterfacesAreIgnored() {
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "192.168.139.3", interface: "bridge100", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "192.168.215.1", interface: "bridge101", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "172.16.10.1", interface: "vmnet8", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "10.211.55.2", interface: "vnic0", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "192.168.64.1", interface: "en20", hardwareInterfaces: hardware))
+    }
+
+    func testTailscaleIsKeptEvenThoughUtunIsNotHardware() {
+        XCTAssertEqual(LocalBridgeHosts.kind(ipv4: "100.101.1.2", interface: "utun4", hardwareInterfaces: hardware), .tailscale)
     }
 
     func testVPNLoopbackLinkLocalAndPublicAddressesAreIgnored() {
-        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "10.8.0.2", interface: "utun3"))
-        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "127.0.0.1", interface: "lo0"))
-        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "169.254.10.1", interface: "en0"))
-        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "172.32.0.1", interface: "en0"))
-        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "8.8.8.8", interface: "en0"))
-        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "not-an-ip", interface: "en0"))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "10.8.0.2", interface: "utun3", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "127.0.0.1", interface: "lo0", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "169.254.10.1", interface: "en0", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "172.32.0.1", interface: "en0", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "8.8.8.8", interface: "en0", hardwareInterfaces: hardware))
+        XCTAssertNil(LocalBridgeHosts.kind(ipv4: "not-an-ip", interface: "en0", hardwareInterfaces: hardware))
     }
 
     func testHostListIsOrderedLANFirstAndDeduplicated() {
         let hosts = LocalBridgeHosts.make(
             localHostName: "Lis-MacBook",
             addresses: [("utun4", "100.101.1.2"), ("en0", "192.168.1.5"), ("utun3", "10.8.0.2"),
-                        ("en0", "192.168.1.5"), ("lo0", "127.0.0.1")],
+                        ("en0", "192.168.1.5"), ("lo0", "127.0.0.1"), ("bridge100", "192.168.139.3")],
+            hardwareInterfaces: hardware,
             magicDNS: "lis-macbook.tail1234.ts.net"
         )
 
@@ -111,7 +129,8 @@ final class LocalBridgePairingTests: XCTestCase {
     }
 
     func testMissingHostNameAndMagicDNSAreOmitted() {
-        let hosts = LocalBridgeHosts.make(localHostName: nil, addresses: [("en0", "10.0.0.8")], magicDNS: nil)
+        let hosts = LocalBridgeHosts.make(localHostName: nil, addresses: [("en0", "10.0.0.8")],
+                                          hardwareInterfaces: hardware, magicDNS: nil)
 
         XCTAssertEqual(hosts, [LocalBridgeHost(kind: .lan, host: "10.0.0.8")])
     }

@@ -42,8 +42,26 @@ final class LocalBridgeService {
     // Host.current() 会做阻塞的 DNS 查询，这里只要电脑名
     let macName = SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac"
 
+    @ObservationIgnored private lazy var reaper = PendingPairingReaper(
+        hasHandshaken: { [weak self] id in
+            // 设备已经不在了（被手动吊销）也就不用再删
+            guard let device = self?.devices.first(where: { $0.id == id }) else { return true }
+            return device.lastSeenAt != nil
+        },
+        discard: { [weak self] id in
+            guard let self, let device = self.devices.first(where: { $0.id == id }) else { return }
+            self.logger.info("添加设备窗口关闭后一直没连上，清理设备 \(id, privacy: .public)")
+            self.revoke(device)
+        }
+    )
+
     private init() {
         loadDevices()
+        // 从没握手成功过的设备是上次没扫完的配对（窗口关掉后 App 在宽限期内退出了），不再保留
+        for device in devices where device.lastSeenAt == nil {
+            logger.info("清理未完成配对的设备 \(device.id, privacy: .public)")
+            revoke(device)
+        }
     }
 
     // MARK: - 启停
@@ -94,6 +112,11 @@ final class LocalBridgeService {
         await refreshHosts()
         return LocalBridgePairingPayload(macId: macId, macName: macName, deviceId: device.id, key: key,
                                          port: server?.port ?? LocalBridgeWire.defaultPort, hosts: hosts)
+    }
+
+    /// 「添加设备」窗口关掉时调用：没握手过的设备过一会儿还没连上就删掉
+    func pairingWindowClosed(deviceId: String) {
+        reaper.windowClosed(deviceId: deviceId)
     }
 
     func revoke(_ device: PairedDevice) {
@@ -148,12 +171,19 @@ final class LocalBridgeService {
             let magicDNS = await Self.tailscaleMagicDNS()
             hosts = LocalBridgeHosts.make(localHostName: SCDynamicStoreCopyLocalHostName(nil) as String?,
                                           addresses: Self.ipv4Addresses(),
+                                          hardwareInterfaces: Self.hardwareInterfaces(),
                                           magicDNS: magicDNS)
             logger.info("直连地址: \(self.hosts.map(\.host).joined(separator: ", "), privacy: .public)")
         }
         hostsTask = task
         await task.value
         hostsTask = nil
+    }
+
+    /// 系统设置里的硬件端口（Wi-Fi、以太网、雷雳网桥），虚拟机/容器建的 bridge100+、vmnet* 不在里面
+    private static func hardwareInterfaces() -> Set<String> {
+        let interfaces = SCNetworkInterfaceCopyAll() as? [SCNetworkInterface] ?? []
+        return Set(interfaces.compactMap { SCNetworkInterfaceGetBSDName($0) as String? })
     }
 
     private static func ipv4Addresses() -> [(interface: String, ipv4: String)] {

@@ -379,6 +379,9 @@ struct AddDeviceSheet: View {
         }
         .padding(24)
         .frame(width: 360, height: 440)
+        .onDisappear {
+            if let payload { LocalBridgeService.shared.pairingWindowClosed(deviceId: payload.deviceId) }
+        }
         .task {
             payload = await LocalBridgeService.shared.addDevice()
             qrImage = payload.flatMap { QRCodeGenerator.generate(from: $0.url) }

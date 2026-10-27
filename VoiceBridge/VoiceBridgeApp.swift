@@ -72,13 +72,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #if DEBUG
-    /// 端到端测试用：`--e2e-pair <path>` 换一台名为 E2E 的设备，把配对二维码内容写到 path
+    /// 端到端测试用：`--e2e-pair <path>` 换一台名为 E2E 的设备，把配对二维码内容写到 path；
+    /// `--e2e-unpair` 只吊销 E2E 设备（脚本收尾用）
     private func writeE2EPairingIfRequested() {
         let args = ProcessInfo.processInfo.arguments
+        let service = LocalBridgeService.shared
+        if args.contains("--e2e-unpair") {
+            service.devices.filter { $0.name == "E2E" }.forEach(service.revoke)
+            return
+        }
         guard let index = args.firstIndex(of: "--e2e-pair"), index + 1 < args.count else { return }
         let path = args[index + 1]
         Task { @MainActor in
-            let service = LocalBridgeService.shared
             service.devices.filter { $0.name == "E2E" }.forEach(service.revoke)
             guard let payload = await service.addDevice(name: "E2E") else { return }
             try? payload.url.write(toFile: path, atomically: true, encoding: .utf8)
