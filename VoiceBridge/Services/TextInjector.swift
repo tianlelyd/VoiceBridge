@@ -21,19 +21,23 @@ final class TextInjector {
 
     private init() {}
 
-    func inject(_ text: String) {
+    @discardableResult
+    func inject(_ text: String) -> InjectionOutcome {
         engine.inject(text)
     }
 
-    func pressEnter() {
+    @discardableResult
+    func pressEnter() -> InjectionOutcome {
         engine.pressEnter()
     }
 
-    func pressShiftEnter() {
+    @discardableResult
+    func pressShiftEnter() -> InjectionOutcome {
         engine.pressShiftEnter()
     }
 
-    func clear() {
+    @discardableResult
+    func clear() -> InjectionOutcome {
         engine.clear()
     }
 

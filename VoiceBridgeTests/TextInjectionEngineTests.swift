@@ -9,9 +9,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .unavailable(axError: -25212)
         ), performer: recorder)
 
-        engine.inject("hello")
+        let outcome = engine.inject("hello")
 
         XCTAssertEqual(recorder.calls, [.clipboard("hello")])
+        XCTAssertEqual(outcome, .injected(.clipboard))
     }
 
     func testFeishuUnavailableFocusFallsBackToClipboard() {
@@ -21,9 +22,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .unavailable(axError: -25212)
         ), performer: recorder)
 
-        engine.inject("hello")
+        let outcome = engine.inject("hello")
 
         XCTAssertEqual(recorder.calls, [.clipboard("hello")])
+        XCTAssertEqual(outcome, .injected(.clipboard))
     }
 
     func testNonWhitelistedUnavailableFocusDropsText() {
@@ -33,9 +35,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .unavailable(axError: -25212)
         ), performer: recorder)
 
-        engine.inject("hello")
+        let outcome = engine.inject("hello")
 
         XCTAssertTrue(recorder.calls.isEmpty)
+        XCTAssertEqual(outcome, .noFocus)
     }
 
     func testNonInputFocusDropsText() {
@@ -45,9 +48,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .nonInput(role: "AXButton", subrole: "AXSwitch", identifier: "foo")
         ), performer: recorder)
 
-        engine.inject("hello")
+        let outcome = engine.inject("hello")
 
         XCTAssertTrue(recorder.calls.isEmpty)
+        XCTAssertEqual(outcome, .noFocus)
     }
 
     func testNativeTextInputStopsAfterSuccessfulAccessibilityInjection() {
@@ -58,9 +62,10 @@ final class TextInjectionEngineTests: XCTestCase {
                               element: AXUIElementCreateSystemWide())
         ), performer: recorder)
 
-        engine.inject("hello")
+        let outcome = engine.inject("hello")
 
         XCTAssertEqual(recorder.calls, [.accessibility("hello")])
+        XCTAssertEqual(outcome, .injected(.accessibility))
     }
 
     func testNativeTextInputFallsBackToAppleScriptThenClipboard() {
@@ -71,13 +76,14 @@ final class TextInjectionEngineTests: XCTestCase {
                               element: AXUIElementCreateSystemWide())
         ), performer: recorder)
 
-        engine.inject("hello")
+        let outcome = engine.inject("hello")
 
         XCTAssertEqual(recorder.calls, [
             .accessibility("hello"),
             .appleScript("hello"),
             .clipboard("hello"),
         ])
+        XCTAssertEqual(outcome, .injected(.clipboard))
     }
 
     func testNativeTextInputStopsAfterAppleScriptSuccess() {
@@ -88,12 +94,13 @@ final class TextInjectionEngineTests: XCTestCase {
                               element: AXUIElementCreateSystemWide())
         ), performer: recorder)
 
-        engine.inject("hello")
+        let outcome = engine.inject("hello")
 
         XCTAssertEqual(recorder.calls, [
             .accessibility("hello"),
             .appleScript("hello"),
         ])
+        XCTAssertEqual(outcome, .injected(.appleEvents))
     }
 
     func testFeishuTextInputSkipsAppleScriptAndUsesClipboardFallback() {
@@ -104,12 +111,13 @@ final class TextInjectionEngineTests: XCTestCase {
                               element: AXUIElementCreateSystemWide())
         ), performer: recorder)
 
-        engine.inject("hello")
+        let outcome = engine.inject("hello")
 
         XCTAssertEqual(recorder.calls, [
             .accessibility("hello"),
             .clipboard("hello"),
         ])
+        XCTAssertEqual(outcome, .injected(.clipboard))
     }
 
     func testTextInputEnterPressesReturnKey() {
@@ -120,9 +128,10 @@ final class TextInjectionEngineTests: XCTestCase {
                               element: AXUIElementCreateSystemWide())
         ), performer: recorder)
 
-        engine.pressEnter()
+        let outcome = engine.pressEnter()
 
         XCTAssertEqual(recorder.calls, [.returnKey])
+        XCTAssertEqual(outcome, .injected(.keyEvent))
     }
 
     func testIntentFallbackUnavailableEnterPressesReturnKey() {
@@ -132,9 +141,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .unavailable(axError: -25212)
         ), performer: recorder)
 
-        engine.pressEnter()
+        let outcome = engine.pressEnter()
 
         XCTAssertEqual(recorder.calls, [.returnKey])
+        XCTAssertEqual(outcome, .injected(.keyEvent))
     }
 
     func testNonInputEnterDropsEvent() {
@@ -144,9 +154,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .nonInput(role: "AXButton", subrole: "AXSwitch", identifier: "foo")
         ), performer: recorder)
 
-        engine.pressEnter()
+        let outcome = engine.pressEnter()
 
         XCTAssertTrue(recorder.calls.isEmpty)
+        XCTAssertEqual(outcome, .noFocus)
     }
 
     func testTextInputShiftEnterPressesShiftReturnKey() {
@@ -157,9 +168,10 @@ final class TextInjectionEngineTests: XCTestCase {
                               element: AXUIElementCreateSystemWide())
         ), performer: recorder)
 
-        engine.pressShiftEnter()
+        let outcome = engine.pressShiftEnter()
 
         XCTAssertEqual(recorder.calls, [.shiftReturnKey])
+        XCTAssertEqual(outcome, .injected(.keyEvent))
     }
 
     func testIntentFallbackUnavailableShiftEnterPressesShiftReturnKey() {
@@ -169,9 +181,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .unavailable(axError: -25212)
         ), performer: recorder)
 
-        engine.pressShiftEnter()
+        let outcome = engine.pressShiftEnter()
 
         XCTAssertEqual(recorder.calls, [.shiftReturnKey])
+        XCTAssertEqual(outcome, .injected(.keyEvent))
     }
 
     func testNonInputShiftEnterDropsEvent() {
@@ -181,9 +194,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .nonInput(role: "AXButton", subrole: "AXSwitch", identifier: "foo")
         ), performer: recorder)
 
-        engine.pressShiftEnter()
+        let outcome = engine.pressShiftEnter()
 
         XCTAssertTrue(recorder.calls.isEmpty)
+        XCTAssertEqual(outcome, .noFocus)
     }
 
     func testTextInputClearUsesAccessibilityWhenAvailable() {
@@ -194,9 +208,10 @@ final class TextInjectionEngineTests: XCTestCase {
                               element: AXUIElementCreateSystemWide())
         ), performer: recorder)
 
-        engine.clear()
+        let outcome = engine.clear()
 
         XCTAssertEqual(recorder.calls, [.clearAccessibility])
+        XCTAssertEqual(outcome, .injected(.accessibility))
     }
 
     func testTextInputClearFallsBackToKeyboardShortcut() {
@@ -207,9 +222,10 @@ final class TextInjectionEngineTests: XCTestCase {
                               element: AXUIElementCreateSystemWide())
         ), performer: recorder)
 
-        engine.clear()
+        let outcome = engine.clear()
 
         XCTAssertEqual(recorder.calls, [.clearAccessibility, .clearKeyboardShortcut])
+        XCTAssertEqual(outcome, .injected(.keyEvent))
     }
 
     func testIntentFallbackUnavailableClearUsesKeyboardShortcut() {
@@ -219,9 +235,10 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .unavailable(axError: -25212)
         ), performer: recorder)
 
-        engine.clear()
+        let outcome = engine.clear()
 
         XCTAssertEqual(recorder.calls, [.clearKeyboardShortcut])
+        XCTAssertEqual(outcome, .injected(.keyEvent))
     }
 
     func testNonInputClearDropsEvent() {
@@ -231,9 +248,24 @@ final class TextInjectionEngineTests: XCTestCase {
             state: .nonInput(role: "AXButton", subrole: "AXSwitch", identifier: "foo")
         ), performer: recorder)
 
-        engine.clear()
+        let outcome = engine.clear()
 
         XCTAssertTrue(recorder.calls.isEmpty)
+        XCTAssertEqual(outcome, .noFocus)
+    }
+
+    func testReleasedDependenciesReportError() {
+        var provider: StaticFocusProvider? = StaticFocusProvider(snapshot: FocusSnapshot(
+            frontmostBundleIdentifier: "com.apple.TextEdit",
+            state: .nonInput(role: nil, subrole: nil, identifier: nil)
+        ))
+        let performer = RecordingPerformer()
+        let engine = TextInjectionEngine(focusProvider: provider!, performer: performer, logger: NoOpLogger())
+        provider = nil
+
+        guard case .error = engine.inject("hello") else {
+            return XCTFail("依赖释放后应返回 error")
+        }
     }
 
     // 引擎内部对 focusProvider/performer 用 weak，测试需在测例生命周期里持有它们

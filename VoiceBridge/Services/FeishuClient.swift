@@ -39,11 +39,7 @@ final class FeishuClient {
     private var appId: String = ""
     private var appSecret: String = ""
 
-    // 消息去重：Dictionary O(1) 查找 + Array FIFO 淘汰
-    private var dedupIndex: [String: Date] = [:]
-    private var dedupQueue: [(id: String, time: Date)] = []
-    private let dedupTTL: TimeInterval = 600
-    private let dedupMaxEntries = 2000
+    private let deduplicator = MessageDeduplicator<Void>()
     private let messageExpirySeconds: TimeInterval = 1800
 
     private let session = URLSession(configuration: .default)
@@ -241,11 +237,11 @@ final class FeishuClient {
 
             let eventId = event.event?.message?.messageId ?? event.header?.eventId
             if let eventId, !eventId.isEmpty {
-                if isDuplicate(eventId) {
+                if deduplicator.contains(eventId) {
                     logger.info("跳过重复事件: \(eventId)")
                     return
                 }
-                recordMessage(eventId)
+                deduplicator.record(eventId)
             }
 
             let createTimeStr = event.event?.message?.createTime ?? event.header?.createTime
@@ -288,31 +284,6 @@ final class FeishuClient {
             self.onTextReceived?(text)
         } catch {
             logger.error("事件 JSON 解析失败: \(error.localizedDescription)")
-        }
-    }
-
-    // MARK: - 消息去重（Dictionary O(1) + FIFO 淘汰）
-
-    private func isDuplicate(_ messageId: String) -> Bool {
-        guard let recorded = dedupIndex[messageId] else { return false }
-        return Date().timeIntervalSince(recorded) < dedupTTL
-    }
-
-    private func recordMessage(_ messageId: String) {
-        let now = Date()
-        dedupIndex[messageId] = now
-        dedupQueue.append((id: messageId, time: now))
-
-        let expiredCount = dedupQueue.prefix(while: { now.timeIntervalSince($0.time) > dedupTTL }).count
-        if expiredCount > 0 {
-            for i in 0..<expiredCount { dedupIndex.removeValue(forKey: dedupQueue[i].id) }
-            dedupQueue.removeFirst(expiredCount)
-        }
-
-        if dedupQueue.count > dedupMaxEntries {
-            let overflow = dedupQueue.count - dedupMaxEntries
-            for i in 0..<overflow { dedupIndex.removeValue(forKey: dedupQueue[i].id) }
-            dedupQueue.removeFirst(overflow)
         }
     }
 
